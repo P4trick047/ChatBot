@@ -40,12 +40,12 @@ if prompt := st.chat_input("Ask me anything..."):
 
         try:
             stream = client.chat.completions.create(
-                messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
-                model="llama-3.1-70b-versatile",   # or "mixtral-8x7b-32768", etc.
-                temperature=0.7,
-                max_tokens=1024,
-                stream=True,
-            )
+                    messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
+                    model="llama-3.3-70b-versatile",
+                    temperature=0.7,
+                    max_tokens=1024,
+                    stream=True,
+                    )
 
             for chunk in stream:
                 if chunk.choices[0].delta.content is not None:
