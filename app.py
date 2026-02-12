@@ -19,7 +19,7 @@ if "messages" not in st.session_state:
 
 # ── Title & description
 st.title("My Free AI Chatbot 🚀")
-st.caption("Powered by Groq + Llama 3.1 (free tier)")
+st.caption("Powered by Reina")
 
 # ── Display chat history
 for message in st.session_state.messages:
