@@ -18,7 +18,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # ── Title & description
-st.title("My Free AI Chatbot 🚀")
+st.title("Hello Bees🐝")
 st.caption("Powered by Reina")
 
 # ── Display chat history
