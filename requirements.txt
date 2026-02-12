@@ -4,3 +4,4 @@ groq                   # if using Groq (very fast & has free tier)
 anthropic              # if using Claude
 langchain              # optional — if you want chaining / memory
 python-dotenv          # if using .env for API keys (recommended!)
+llama-3.3-70b-versatile
