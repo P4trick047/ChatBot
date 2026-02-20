@@ -1003,24 +1003,26 @@ from dotenv import load_dotenv
 import requests
 import pandas as pd
 import io
+import os
 
-# ── LangChain imports for RAG
+# LangChain imports
 from langchain_community.document_loaders import PyMuPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
+# Optional floating bees
 try:
     from streamlit_emoji_float import emoji_float
-    FLOAT_EMOJIS_AVAILABLE = True
+    FLOAT_EMOJIS = True
 except ImportError:
-    FLOAT_EMOJIS_AVAILABLE = False
+    FLOAT_EMOJIS = False
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
-    st.error("GROQ_API_KEY not found. Add it to .env or Streamlit Secrets.")
+    st.error("GROQ_API_KEY not set in .env or Streamlit secrets")
     st.stop()
 
 client = Groq(api_key=GROQ_API_KEY)
@@ -1033,7 +1035,7 @@ GROQ_MODELS = {
     "Gemma 2 9B": "gemma2-9b-it",
 }
 
-# ── Page config
+# ── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Reina 🐝 Beehive AI",
     page_icon="🐝",
@@ -1041,136 +1043,111 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── Floating emojis (optional – install streamlit-emoji-float if you want)
-if FLOAT_EMOJIS_AVAILABLE:
+# ── Floating bees (optional) ────────────────────────────────────────────────
+if FLOAT_EMOJIS:
     emoji_float(
         emojis=["🐝", "🐝", "🍯", "🌼", "💛"],
-        count=12,
-        minSize=22,
-        maxSize=50,
-        duration=16.0,
+        count=10,
+        minSize=24,
+        maxSize=48,
+        duration=18.0,
         fadeOut=True,
-        opacity=0.65
+        opacity=0.6
     )
 
-# ── Interactive Honeycomb Background + Bee Animations ────────────────────────
-st.components.v1.html("""
-<div class="honeycomb-bg"></div>
-
-<style>
-  .honeycomb-bg {
-    position: fixed;
-    inset: 0;
-    z-index: -2;
-    pointer-events: none;
-    overflow: hidden;
-    background: linear-gradient(135deg, #fffdf0 0%, #fff8e1 50%, #ffe9bf 100%);
-  }
-
-  .hex-grid {
-    position: absolute;
-    width: 200%;
-    height: 200%;
-    top: -50%;
-    left: -50%;
-    transform: rotate(30deg) scale(1.1);
-    opacity: 0.12;
-  }
-
-  .hex {
-    position: absolute;
-    width: 80px;
-    height: 92.38px; /* ≈ 80 * √3 */
-    background: radial-gradient(circle at 50% 50%, #f4c43033, transparent 70%);
-    border: 1px solid #f4c43055;
-    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    transition: all 0.6s ease;
-    animation: pulse 8s infinite ease-in-out;
-  }
-
-  .hex:hover {
-    background: radial-gradient(circle at 50% 50%, #f4c43088, transparent 60%);
-    transform: scale(1.15);
-    opacity: 0.5;
-    box-shadow: 0 0 20px #f4c430aa;
-  }
-
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 0.12; }
-    50%      { transform: scale(1.06); opacity: 0.18; }
-  }
-
-  /* Scatter many hexes */
-  ${Array.from({length: 60}, (_, i) => {
-    const x = Math.random() * 100;
-    const y = Math.random() * 100;
-    const delay = Math.random() * 5;
-    const size = 50 + Math.random() * 60;
-    return `
-      .hex:nth-child(${i+1}) {
-        left: ${x}%;
-        top: ${y}%;
-        animation-delay: ${delay}s;
-        width: ${size}px;
-        height: ${size * 1.1547}px;
-      }
-    `;
-  }).join('')}
-
-  /* Flying bees */
-  .bee {
-    position: absolute;
-    font-size: 28px;
-    animation: fly-bee linear infinite;
-    opacity: 0.7;
-    pointer-events: none;
-  }
-
-  @keyframes fly-bee {
-    0%   { transform: translate(-120vw, 20vh) rotate(0deg); }
-    100% { transform: translate(120vw, -20vh) rotate(720deg); }
-  }
-</style>
-
-<div class="hex-grid">
-  ${Array.from({length: 60}, () => '<div class="hex"></div>').join('')}
-</div>
-
-<!-- Some flying bees -->
-<div class="bee" style="top:15%; animation-duration:35s; animation-delay:0s;">🐝</div>
-<div class="bee" style="top:35%; animation-duration:42s; animation-delay:4s;">🐝</div>
-<div class="bee" style="top:65%; animation-duration:38s; animation-delay:8s;">🐝</div>
-<div class="bee" style="top:85%; animation-duration:48s; animation-delay:12s;">🍯</div>
-""", height=200)   # height just needs to be >0 — content is fixed/absolute
-
-# ── Rest of your app (CSS overrides + logic) ───────────────────────────────
-
+# ── Very dark + golden bee theme ────────────────────────────────────────────
 st.markdown("""
     <style>
+    /* Main background - very dark */
     [data-testid="stAppViewContainer"] {
-        background: transparent !important;   /* let honeycomb show through */
+        background-color: #0a0a0f !important;
+        color: #e0e0ff !important;
     }
+
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #111118 !important;
+        border-right: 1px solid #3a2f00 !important;
+    }
+
+    /* Headers */
+    h1, h2, h3 {
+        color: #ffcc33 !important;
+        text-shadow: 0 0 10px #ffaa0066;
+    }
+
+    /* Title bee animation */
+    .bee-title {
+        display: flex;
+        align-items: center;
+        font-size: 2.8rem !important;
+        margin-bottom: 0.4rem;
+    }
+    .bee-title::before {
+        content: "🐝 ";
+        font-size: 2.4rem;
+        margin-right: 14px;
+        animation: buzz 2.2s infinite;
+    }
+    @keyframes buzz {
+        0%, 100% { transform: translateX(0) rotate(0deg); }
+        25% { transform: translateX(6px) rotate(15deg); }
+        75% { transform: translateX(-6px) rotate(-15deg); }
+    }
+
+    /* Chat message containers */
+    .stChatMessage {
+        background-color: #16161f !important;
+        border-radius: 16px !important;
+        margin: 8px 0 !important;
+        border: 1px solid #3a2f0044 !important;
+    }
+
     .stChatMessage.user {
-        background-color: #ffeb99dd !important;
-        border: 2px solid #f4c430 !important;
-        border-radius: 20px 20px 4px 20px !important;
+        background: linear-gradient(135deg, #2a1f00, #3a2f00) !important;
+        border-color: #ffcc3388 !important;
     }
+
     .stChatMessage.assistant {
-        background-color: #e6f4ffdd !important;
-        border: 2px solid #a3d4ff !important;
-        border-radius: 20px 20px 20px 4px !important;
+        background: linear-gradient(135deg, #1a1a2e, #0f0f1e) !important;
+        border-color: #6655aa66 !important;
     }
+
+    /* Chat input - pill shaped, golden border */
     [data-testid="stChatInput"] {
-        background-color: #fff8e1ee !important;
-        border: 2px solid #f4c430 !important;
-        border-radius: 28px !important;
+        background-color: #111118 !important;
+        border: 2px solid #ffcc3366 !important;
+        border-radius: 9999px !important;
+        padding: 12px 20px !important;
+        color: #f0f0ff !important;
     }
-    h1, h2, h3 { color: #d4a017 !important; }
+
+    [data-testid="stChatInput"] > div > textarea {
+        color: #f0f0ff !important;
+        caret-color: #ffcc33 !important;
+    }
+
+    /* Send button area */
+    [data-testid="stChatInput"] button {
+        background: #ffcc3344 !important;
+        color: #0a0a0f !important;
+        border: none !important;
+    }
+
+    /* Remove white/bright elements */
+    .stApp > header, .st-emotion-cache-1y4p8pa {
+        background: transparent !important;
+    }
+
+    /* Block report & footer */
+    footer, [data-testid="stDecoration"] {
+        visibility: hidden !important;
+        height: 0 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# ── Session state & Sidebar & Rest of the code remains almost the same ──────
-
+# ── Session state ───────────────────────────────────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "vectorstore" not in st.session_state:
@@ -1178,139 +1155,139 @@ if "vectorstore" not in st.session_state:
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = list(GROQ_MODELS.keys())[0]
 
+# ── Sidebar ─────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🐝 Reina's Hive Controls")
-    st.caption("Buzz around these settings")
-
-    selected_model_name = st.selectbox(
-        "Choose your brain",
+    st.markdown("### 🐝 Hive Controls")
+    model_name = st.selectbox(
+        "Brain",
         options=list(GROQ_MODELS.keys()),
         index=list(GROQ_MODELS.keys()).index(st.session_state.selected_model)
     )
-    st.session_state.selected_model = selected_model_name
-    model_id = GROQ_MODELS[selected_model_name]
+    st.session_state.selected_model = model_name
+    model_id = GROQ_MODELS[model_name]
 
     st.divider()
-    st.subheader("📄 Feed me documents (RAG)")
+
+    st.subheader("📄 Feed Reina documents")
     uploaded_files = st.file_uploader(
-        "PDF or TXT files", type=["pdf", "txt"], accept_multiple_files=True
+        "PDF or TXT", type=["pdf", "txt"], accept_multiple_files=True
     )
 
-    if st.button("🧹 Clear Chat & Forget Documents"):
+    if st.button("🧹 Reset everything", use_container_width=True):
         st.session_state.messages = []
         st.session_state.vectorstore = None
         st.rerun()
 
-# ── Google Sheet loader (unchanged) ────────────────────────────────────────
+# ── Google Sheet loader (keep your original function) ───────────────────────
 @st.cache_data(ttl=1800)
 def load_google_sheet_csv(spreadsheet_id, gid=0):
-    export_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
+    url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
     try:
-        response = requests.get(export_url, timeout=10)
-        response.raise_for_status()
-        return pd.read_csv(io.StringIO(response.text))
-    except Exception as e:
-        st.warning(f"Could not load Google Sheet: {e}")
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        return pd.read_csv(io.StringIO(r.text))
+    except:
         return pd.DataFrame()
 
 SHEET_ID = "1ATllEOsVzBIHm4egctEVbf7CDzmHtFfyEMmT7U6NNnw"
 GID = 0
 
-# ── Document processing (unchanged except message flavor) ──────────────────
+# ── Document processing ─────────────────────────────────────────────────────
 if uploaded_files and st.session_state.vectorstore is None:
-    with st.spinner("Chewing through your documents... 🍯"):
+    with st.spinner("Digesting documents... 🍯"):
         docs = []
         for file in uploaded_files:
-            bytes_data = file.read()
-            file_name = file.name.lower()
-            with open(file_name, "wb") as f:
-                f.write(bytes_data)
+            data = file.read()
+            fname = file.name.lower()
+            with open(fname, "wb") as f:
+                f.write(data)
 
-            if file_name.endswith(".pdf"):
-                loader = PyMuPDFLoader(file_name)
-            elif file_name.endswith(".txt"):
-                loader = TextLoader(file_name)
+            if fname.endswith(".pdf"):
+                loader = PyMuPDFLoader(fname)
+            elif fname.endswith(".txt"):
+                loader = TextLoader(fname)
             else:
                 continue
 
             docs.extend(loader.load())
-            os.remove(file_name)
+            os.remove(fname)
 
         if docs:
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-            splits = text_splitter.split_documents(docs)
-            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-            st.session_state.vectorstore = FAISS.from_documents(splits, embeddings)
+            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            chunks = splitter.split_documents(docs)
+            emb = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            st.session_state.vectorstore = FAISS.from_documents(chunks, emb)
 
-            st.success(f"🍯 Yum! Digested **{len(splits)}** chunks.")
             st.session_state.messages.append({
                 "role": "assistant",
-                "content": f"Bzzzzt! Honey storage upgraded — **{len(splits)}** fresh knowledge chunks indexed. Ask away! 🐝"
+                "content": f"🍯 **Bzzzzt!** I stored **{len(chunks)}** juicy chunks from your files. Ask me anything!"
             })
 
-# ── Title & Welcome & Chat (unchanged except small flavor tweaks) ──────────
+# ── Main content ────────────────────────────────────────────────────────────
 st.markdown('<h1 class="bee-title">Hello Bees 🐝</h1>', unsafe_allow_html=True)
 st.caption(f"Reina • {st.session_state.selected_model} • Beehive oracle")
 
-if len(st.session_state.messages) == 0:
+# Welcome
+if not st.session_state.messages:
     welcome = """
     🐝 **Bzzzzt!** Welcome to the hive, human!
 
-    I'm **Reina** — your sassy, honey-loving AI oracle.  
-    Ask anything, feed me documents (PDF/txt), or just enjoy the bee puns 🍯
+    I'm **Reina** — your slightly sassy beehive oracle.  
+    Ask anything, feed me documents, or just vibe with bee puns 🍯
     """
     st.session_state.messages.append({"role": "assistant", "content": welcome})
 
+# Chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Bzzz... whisper your question..."):
+# Input
+if prompt := st.chat_input("Bzzz... whisper your question"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
         placeholder = st.empty()
-        full_response = ""
+        full = ""
 
         try:
-            context_str = ""
+            context = ""
 
             if st.session_state.vectorstore:
                 retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
-                relevant_docs = retriever.invoke(prompt)
-                doc_text = "\n\n".join([d.page_content for d in relevant_docs])
-                if doc_text:
-                    context_str += f"Relevant document context:\n{doc_text}\n\n"
+                hits = retriever.invoke(prompt)
+                context += "\n\n".join(d.page_content for d in hits) + "\n\n"
 
-            df_sheet = load_google_sheet_csv(SHEET_ID, GID)
-            if not df_sheet.empty:
-                context_str += f"Beehive records:\n{df_sheet.to_markdown(index=False)}\n\nUse recent entries when dates matter."
+            df = load_google_sheet_csv(SHEET_ID, GID)
+            if not df.empty:
+                context += f"Current hive records:\n{df.to_markdown(index=False)}\n"
 
-            system_content = f"""You are Reina, friendly & sassy bee AI 🐝.
-Sprinkle light bee puns. Helpful, concise, warm.
-{context_str}"""
+            system = f"""You are Reina, sassy bee-themed AI 🐝.
+Sprinkle light bee puns. Warm, helpful, cheeky.
+Use the following context when relevant:
+{context}"""
 
-            messages_for_api = [{"role": "system", "content": system_content}] + [
+            messages = [{"role": "system", "content": system}] + [
                 {"role": m["role"], "content": m["content"]} for m in st.session_state.messages
             ]
 
             stream = client.chat.completions.create(
-                messages=messages_for_api,
+                messages=messages,
                 model=model_id,
-                temperature=0.7,
-                max_tokens=1024,
+                temperature=0.75,
+                max_tokens=1200,
                 stream=True
             )
 
             for chunk in stream:
                 if chunk.choices[0].delta.content:
-                    full_response += chunk.choices[0].delta.content
-                    placeholder.markdown(full_response + "▌")
+                    full += chunk.choices[0].delta.content
+                    placeholder.markdown(full + "▌")
 
-            placeholder.markdown(full_response)
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            placeholder.markdown(full)
+            st.session_state.messages.append({"role": "assistant", "content": full})
 
         except Exception as e:
-            st.error(f"Oops — hive malfunction: {e}")
+            st.error(f"Hive malfunction: {str(e)}")
