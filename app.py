@@ -818,6 +818,9 @@ if not GOOGLE_API_KEY:
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
+for m in genai.list_models():
+    st.write(m.name)
+
 # ──────────────────────────────
 # AVAILABLE MODELS (Correct format)
 # ──────────────────────────────
