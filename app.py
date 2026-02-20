@@ -799,36 +799,48 @@ import pandas as pd
 import io
 import google.generativeai as genai
 
-# ── LangChain imports for RAG
+# ── LangChain imports
 from langchain_community.document_loaders import PyMuPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
+# ──────────────────────────────
+# ENV SETUP
+# ──────────────────────────────
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
 if not GOOGLE_API_KEY:
-    st.error("GOOGLE_API_KEY not found. Add it to .env or Streamlit Secrets.")
+    st.error("GOOGLE_API_KEY not found in .env or Streamlit secrets.")
     st.stop()
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# ── Available Gemini Models
+# ──────────────────────────────
+# AVAILABLE MODELS (Correct format)
+# ──────────────────────────────
 GEMINI_MODELS = {
-    "Gemini 1.5 Flash": "gemini-1.5-flash",
-    "Gemini 1.5 Pro": "gemini-1.5-pro",
+    "Gemini 1.5 Flash (Fast)": "models/gemini-1.5-flash",
+    "Gemini 1.5 Pro (Smart)": "models/gemini-1.5-pro",
 }
 
-# ── Session state
+# ──────────────────────────────
+# SESSION STATE
+# ──────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
 if "vectorstore" not in st.session_state:
     st.session_state.vectorstore = None
+
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = list(GEMINI_MODELS.keys())[0]
 
-# ── Sidebar
+# ──────────────────────────────
+# SIDEBAR
+# ──────────────────────────────
 with st.sidebar:
     st.header("⚙️ Settings")
 
@@ -842,9 +854,10 @@ with st.sidebar:
     model_id = GEMINI_MODELS[selected_model_name]
 
     st.divider()
+
     st.subheader("📄 Upload Documents (RAG)")
     uploaded_files = st.file_uploader(
-        "PDF or TXT files",
+        "Upload PDF or TXT",
         type=["pdf", "txt"],
         accept_multiple_files=True,
     )
@@ -854,49 +867,54 @@ with st.sidebar:
         st.session_state.vectorstore = None
         st.rerun()
 
-# ── Google Sheet loader
+# ──────────────────────────────
+# GOOGLE SHEET LOADER
+# ──────────────────────────────
 @st.cache_data(ttl=1800)
 def load_google_sheet_csv(spreadsheet_id, gid=0):
-    export_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
+    url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
     try:
-        response = requests.get(export_url, timeout=10)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
-        csv_data = io.StringIO(response.text)
-        df = pd.read_csv(csv_data)
+        df = pd.read_csv(io.StringIO(response.text))
         return df
-    except Exception:
+    except:
         return pd.DataFrame()
 
 SHEET_ID = "1ATllEOsVzBIHm4egctEVbf7CDzmHtFfyEMmT7U6NNnw"
 GID = 0
 
-# ── Process uploaded docs
+# ──────────────────────────────
+# PROCESS DOCUMENTS (RAG)
+# ──────────────────────────────
 if uploaded_files and st.session_state.vectorstore is None:
     with st.spinner("Processing documents..."):
         docs = []
+
         for file in uploaded_files:
             bytes_data = file.read()
-            file_name = file.name.lower()
+            filename = file.name.lower()
 
-            with open(file_name, "wb") as f:
+            with open(filename, "wb") as f:
                 f.write(bytes_data)
 
-            if file_name.endswith(".pdf"):
-                loader = PyMuPDFLoader(file_name)
-            elif file_name.endswith(".txt"):
-                loader = TextLoader(file_name)
+            if filename.endswith(".pdf"):
+                loader = PyMuPDFLoader(filename)
+            elif filename.endswith(".txt"):
+                loader = TextLoader(filename)
             else:
                 continue
 
             docs.extend(loader.load())
-            os.remove(file_name)
+            os.remove(filename)
 
         if docs:
-            text_splitter = RecursiveCharacterTextSplitter(
+            splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000,
                 chunk_overlap=200
             )
-            splits = text_splitter.split_documents(docs)
+
+            splits = splitter.split_documents(docs)
 
             embeddings = HuggingFaceEmbeddings(
                 model_name="sentence-transformers/all-MiniLM-L6-v2"
@@ -909,19 +927,25 @@ if uploaded_files and st.session_state.vectorstore is None:
 
             st.success(f"✅ {len(splits)} chunks indexed!")
 
-# ── UI
+# ──────────────────────────────
+# UI
+# ──────────────────────────────
 st.title("Hello Bees 🐝")
-st.caption(f"Powered by Reina • {st.session_state.selected_model}")
+st.caption(f"Powered by Gemini • {st.session_state.selected_model}")
 
 if len(st.session_state.messages) == 0:
-    welcome = "Bzzzzt! 🐝 Hi I'm Reina — your beehive AI."
-    st.session_state.messages.append({"role": "assistant", "content": welcome})
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": "Bzzzzt! 🐝 I'm Reina, your beehive AI."
+    })
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# ── Chat
+# ──────────────────────────────
+# CHAT
+# ──────────────────────────────
 if prompt := st.chat_input("Ask me anything..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
@@ -933,34 +957,35 @@ if prompt := st.chat_input("Ask me anything..."):
         full_response = ""
 
         try:
-            context_str = ""
+            context_text = ""
 
             # RAG
             if st.session_state.vectorstore:
                 retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
-                relevant_docs = retriever.invoke(prompt)
-                doc_text = "\n\n".join([doc.page_content for doc in relevant_docs])
-                context_str += doc_text + "\n\n"
+                docs = retriever.invoke(prompt)
+                context_text += "\n\n".join([d.page_content for d in docs])
 
             # Google Sheet
-            df_sheet = load_google_sheet_csv(SHEET_ID, gid=GID)
+            df_sheet = load_google_sheet_csv(SHEET_ID, GID)
             if not df_sheet.empty:
-                sheet_text = df_sheet.to_markdown(index=False)
-                context_str += sheet_text
+                context_text += "\n\nGoogle Sheet Data:\n"
+                context_text += df_sheet.to_string(index=False)
 
             system_prompt = f"""
 You are Reina, a friendly bee-themed AI 🐝.
-Be helpful, concise and slightly playful.
+Be helpful, clear, slightly playful.
 
 Context:
-{context_str}
+{context_text}
 """
 
-            model = genai.GenerativeModel(model_id)
+            model = genai.GenerativeModel(model_name=model_id)
 
             response = model.generate_content(
-                system_prompt + "\nUser: " + prompt,
-                stream=True
+                [
+                    {"role": "user", "parts": system_prompt + "\n\nUser Question: " + prompt}
+                ],
+                stream=True,
             )
 
             for chunk in response:
@@ -969,9 +994,11 @@ Context:
                     message_placeholder.markdown(full_response + "▌")
 
             message_placeholder.markdown(full_response)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": full_response}
-            )
+
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": full_response
+            })
 
         except Exception as e:
             st.error(f"Oops... {str(e)}")
