@@ -797,7 +797,7 @@ from dotenv import load_dotenv
 import requests
 import pandas as pd
 import io
-import google.generativeai as genai
+from google import genai
 
 # ── LangChain imports
 from langchain_community.document_loaders import PyMuPDFLoader, TextLoader
@@ -806,28 +806,28 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
 # ──────────────────────────────
-# ENV SETUP
+# ENV
 # ──────────────────────────────
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 if not GOOGLE_API_KEY:
-    st.error("GOOGLE_API_KEY not found in .env or Streamlit secrets.")
+    st.error("GOOGLE_API_KEY not found.")
     st.stop()
 
-genai.configure(api_key=GOOGLE_API_KEY)
+client = genai.Client(api_key=GOOGLE_API_KEY)
 
 # ──────────────────────────────
-# AVAILABLE MODELS (Correct format)
+# AVAILABLE MODELS (SAFE ONES)
 # ──────────────────────────────
 GEMINI_MODELS = {
-    "Gemini 1.5 Flash (Fast)": "models/gemini-1.5-flash",
-    "Gemini 1.5 Pro (Smart)": "models/gemini-1.5-pro",
+    "Gemini 1.5 Flash": "gemini-1.5-flash",
+    "Gemini 1.5 Pro": "gemini-1.5-pro",
 }
 
 # ──────────────────────────────
-# SESSION STATE
+# SESSION
 # ──────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -846,8 +846,7 @@ with st.sidebar:
 
     selected_model_name = st.selectbox(
         "Choose Model",
-        options=list(GEMINI_MODELS.keys()),
-        index=list(GEMINI_MODELS.keys()).index(st.session_state.selected_model)
+        list(GEMINI_MODELS.keys())
     )
 
     st.session_state.selected_model = selected_model_name
@@ -855,27 +854,25 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("📄 Upload Documents (RAG)")
     uploaded_files = st.file_uploader(
-        "Upload PDF or TXT",
+        "Upload PDF or TXT (RAG)",
         type=["pdf", "txt"],
-        accept_multiple_files=True,
+        accept_multiple_files=True
     )
 
-    if st.button("🧹 Clear Chat & Documents"):
+    if st.button("Clear Chat"):
         st.session_state.messages = []
         st.session_state.vectorstore = None
         st.rerun()
 
 # ──────────────────────────────
-# GOOGLE SHEET LOADER
+# GOOGLE SHEET
 # ──────────────────────────────
 @st.cache_data(ttl=1800)
 def load_google_sheet_csv(spreadsheet_id, gid=0):
     url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
+        response = requests.get(url)
         df = pd.read_csv(io.StringIO(response.text))
         return df
     except:
@@ -885,47 +882,45 @@ SHEET_ID = "1ATllEOsVzBIHm4egctEVbf7CDzmHtFfyEMmT7U6NNnw"
 GID = 0
 
 # ──────────────────────────────
-# PROCESS DOCUMENTS (RAG)
+# RAG PROCESSING
 # ──────────────────────────────
 if uploaded_files and st.session_state.vectorstore is None:
-    with st.spinner("Processing documents..."):
-        docs = []
+    docs = []
 
-        for file in uploaded_files:
-            bytes_data = file.read()
-            filename = file.name.lower()
+    for file in uploaded_files:
+        bytes_data = file.read()
+        filename = file.name.lower()
 
-            with open(filename, "wb") as f:
-                f.write(bytes_data)
+        with open(filename, "wb") as f:
+            f.write(bytes_data)
 
-            if filename.endswith(".pdf"):
-                loader = PyMuPDFLoader(filename)
-            elif filename.endswith(".txt"):
-                loader = TextLoader(filename)
-            else:
-                continue
+        if filename.endswith(".pdf"):
+            loader = PyMuPDFLoader(filename)
+        elif filename.endswith(".txt"):
+            loader = TextLoader(filename)
+        else:
+            continue
 
-            docs.extend(loader.load())
-            os.remove(filename)
+        docs.extend(loader.load())
+        os.remove(filename)
 
-        if docs:
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200
-            )
+    if docs:
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200
+        )
+        splits = splitter.split_documents(docs)
 
-            splits = splitter.split_documents(docs)
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
 
-            embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2"
-            )
+        st.session_state.vectorstore = FAISS.from_documents(
+            splits,
+            embeddings
+        )
 
-            st.session_state.vectorstore = FAISS.from_documents(
-                splits,
-                embeddings
-            )
-
-            st.success(f"✅ {len(splits)} chunks indexed!")
+        st.success("Documents indexed!")
 
 # ──────────────────────────────
 # UI
@@ -936,7 +931,7 @@ st.caption(f"Powered by Gemini • {st.session_state.selected_model}")
 if len(st.session_state.messages) == 0:
     st.session_state.messages.append({
         "role": "assistant",
-        "content": "Bzzzzt! 🐝 I'm Reina, your beehive AI."
+        "content": "Hi! I'm Reina 🐝 Ask me anything."
     })
 
 for msg in st.session_state.messages:
@@ -953,47 +948,45 @@ if prompt := st.chat_input("Ask me anything..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        message_placeholder = st.empty()
+        placeholder = st.empty()
         full_response = ""
 
         try:
-            context_text = ""
+            context = ""
 
             # RAG
             if st.session_state.vectorstore:
-                retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
+                retriever = st.session_state.vectorstore.as_retriever()
                 docs = retriever.invoke(prompt)
-                context_text += "\n\n".join([d.page_content for d in docs])
+                context += "\n\n".join([d.page_content for d in docs])
 
             # Google Sheet
             df_sheet = load_google_sheet_csv(SHEET_ID, GID)
             if not df_sheet.empty:
-                context_text += "\n\nGoogle Sheet Data:\n"
-                context_text += df_sheet.to_string(index=False)
+                context += "\n\nGoogle Sheet Data:\n"
+                context += df_sheet.to_string(index=False)
 
-            system_prompt = f"""
-You are Reina, a friendly bee-themed AI 🐝.
-Be helpful, clear, slightly playful.
+            final_prompt = f"""
+You are Reina, a helpful bee-themed AI.
 
 Context:
-{context_text}
+{context}
+
+User Question:
+{prompt}
 """
 
-            model = genai.GenerativeModel(model_name=model_id)
-
-            response = model.generate_content(
-                [
-                    {"role": "user", "parts": system_prompt + "\n\nUser Question: " + prompt}
-                ],
-                stream=True,
+            response = client.models.generate_content_stream(
+                model=model_id,
+                contents=final_prompt,
             )
 
             for chunk in response:
                 if chunk.text:
                     full_response += chunk.text
-                    message_placeholder.markdown(full_response + "▌")
+                    placeholder.markdown(full_response + "▌")
 
-            message_placeholder.markdown(full_response)
+            placeholder.markdown(full_response)
 
             st.session_state.messages.append({
                 "role": "assistant",
@@ -1001,4 +994,4 @@ Context:
             })
 
         except Exception as e:
-            st.error(f"Oops... {str(e)}")
+            st.error(f"Error: {str(e)}")
