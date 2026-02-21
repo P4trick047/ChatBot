@@ -1281,7 +1281,8 @@ if uploaded_files and st.session_state.vectorstore is None:
 
 # ── Main content ────────────────────────────────────────────────────────────
 st.markdown('<h1 class="bee-title">Hello Bees 🐝</h1>', unsafe_allow_html=True)
-st.caption(f"Reina • {st.session_state.selected_model} • Beehive oracle 🐝")
+st.caption(f"Reina • {st.session_state.selected_model} • **Bzzzzt🐝!** Welcome to the hive, human! I'm **Reina** — your slightly sassy beehive oracle.  
+Ask anything, feed me documents, or just vibe with bee puns 🍯")
 
 # # Welcome
 # if not st.session_state.messages:
