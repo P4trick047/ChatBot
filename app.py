@@ -1029,10 +1029,6 @@ client = Groq(api_key=GROQ_API_KEY)
 
 GROQ_MODELS = {
     "Llama 3.3 70B Versatile": "llama-3.3-70b-versatile",
-    "Llama 3.1 70B": "llama-3.1-70b-versatile",
-    "Llama 3.1 8B": "llama-3.1-8b-instant",
-    "Mixtral 8x7B": "mixtral-8x7b-32768",
-    "Gemma 2 9B": "gemma2-9b-it",
 }
 
 # ── Page config ─────────────────────────────────────────────────────────────
