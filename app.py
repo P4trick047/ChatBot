@@ -996,37 +996,36 @@
 #         except Exception as e:
 #             st.error(f"Error: {str(e)}")
 ### interactive UI in model 4h ####
-# app.py
-
 import streamlit as st
 from groq import Groq
 import os
+from dotenv import load_dotenv
 import requests
 import pandas as pd
 import io
 import tempfile
 
-# LangChain components
+# LangChain imports
 from langchain_community.document_loaders import PyMuPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
-# ────────────────────────────────────────────────────────────────
-# Secrets / environment
-# ────────────────────────────────────────────────────────────────
+# Optional floating bees
+try:
+    from streamlit_emoji_float import emoji_float
+    FLOAT_EMOJIS = True
+except ImportError:
+    FLOAT_EMOJIS = False
 
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+load_dotenv()
 
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
-    st.error("GROQ_API_KEY is missing. Please add it to Streamlit secrets or environment variables.")
+    st.error("GROQ_API_KEY not set in .env or Streamlit secrets")
     st.stop()
 
 client = Groq(api_key=GROQ_API_KEY)
-
-# ────────────────────────────────────────────────────────────────
-# Configuration
-# ────────────────────────────────────────────────────────────────
 
 GROQ_MODELS = {
     "Llama 3.3 70B Versatile": "llama-3.3-70b-versatile",
@@ -1036,13 +1035,7 @@ GROQ_MODELS = {
     "Gemma 2 9B": "gemma2-9b-it",
 }
 
-SHEET_ID = "1ATllEOsVzBIHm4egctEVbf7CDzmHtFfyEMmT7U6NNnw"
-GID = 0
-
-# ────────────────────────────────────────────────────────────────
-# Page config
-# ────────────────────────────────────────────────────────────────
-
+# ── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Reina 🐝 Beehive AI",
     page_icon="🐝",
@@ -1050,46 +1043,171 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ────────────────────────────────────────────────────────────────
-# Very dark + golden theme
-# ────────────────────────────────────────────────────────────────
+# ── Theme detection & user override ─────────────────────────────────────────
+if "theme_override" not in st.session_state:
+    st.session_state.theme_override = "auto"  # auto / light / dark
 
+# JavaScript to detect system preference
+theme_js = """
+<script>
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = isDark ? 'dark' : 'light';
+    
+    // Apply class immediately
+    document.body.classList.add(theme + '-theme');
+    
+    // Listen for system changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        document.body.classList.remove('light-theme', 'dark-theme');
+        document.body.classList.add(e.matches ? 'dark-theme' : 'light-theme');
+    });
+</script>
+"""
+
+st.components.v1.html(theme_js, height=0)
+
+# Sidebar theme selector
+with st.sidebar:
+    st.markdown("### 🐝 Hive Controls & Theme")
+    
+    theme_choice = st.radio(
+        "Appearance",
+        options=["Auto (system)", "Light ☀️", "Dark 🌙"],
+        index=0 if st.session_state.theme_override == "auto" else
+               1 if st.session_state.theme_override == "light" else 2,
+        horizontal=True
+    )
+
+    if theme_choice == "Auto (system)":
+        st.session_state.theme_override = "auto"
+    elif theme_choice == "Light ☀️":
+        st.session_state.theme_override = "light"
+    else:
+        st.session_state.theme_override = "dark"
+
+# Final theme class logic
+if st.session_state.theme_override == "auto":
+    # JS already applied class → we just add override if needed
+    pass
+elif st.session_state.theme_override == "light":
+    st.markdown('<script>document.body.classList.remove("dark-theme"); document.body.classList.add("light-theme");</script>', unsafe_allow_html=True)
+else:
+    st.markdown('<script>document.body.classList.remove("light-theme"); document.body.classList.add("dark-theme");</script>', unsafe_allow_html=True)
+
+# ── Theme-aware CSS with variables ──────────────────────────────────────────
 st.markdown("""
 <style>
+    :root {
+        --bg-main: #0a0a0f;
+        --bg-sidebar: #111118;
+        --text-main: #e0e0ff;
+        --accent: #ffcc33;
+        --accent-glow: #ffaa0066;
+        --chat-user-bg: linear-gradient(135deg, #2a1f00, #3a2f00);
+        --chat-assist-bg: linear-gradient(135deg, #1a1a2e, #0f0f1e);
+        --input-bg: #111118;
+        --input-border: #ffcc3366;
+    }
+
+    body.light-theme {
+        --bg-main: #fdfaf0;
+        --bg-sidebar: #fff8e1;
+        --text-main: #3c2f00;
+        --accent: #d4a017;
+        --accent-glow: #f4c43088;
+        --chat-user-bg: linear-gradient(135deg, #fff0c7, #ffe9bf);
+        --chat-assist-bg: linear-gradient(135deg, #e6f4ff, #d6eaff);
+        --input-bg: #fff8e1;
+        --input-border: #f4c43066;
+    }
+
     [data-testid="stAppViewContainer"] {
-        background-color: #0a0a0f;
-        color: #e0e0ff;
+        background-color: var(--bg-main) !important;
+        color: var(--text-main) !important;
     }
+
     [data-testid="stSidebar"] {
-        background-color: #111118;
+        background-color: var(--bg-sidebar) !important;
+        border-right: 1px solid var(--accent-glow) !important;
     }
+
     h1, h2, h3 {
-        color: #ffcc33 !important;
+        color: var(--accent) !important;
+        text-shadow: 0 0 10px var(--accent-glow);
     }
+
+    .bee-title {
+        display: flex;
+        align-items: center;
+        font-size: 2.8rem !important;
+        margin-bottom: 0.4rem;
+    }
+    .bee-title::before {
+        content: "🐝 ";
+        font-size: 2.4rem;
+        margin-right: 14px;
+        animation: buzz 2.2s infinite;
+    }
+    @keyframes buzz {
+        0%, 100% { transform: translateX(0) rotate(0deg); }
+        25% { transform: translateX(6px) rotate(15deg); }
+        75% { transform: translateX(-6px) rotate(-15deg); }
+    }
+
     .stChatMessage {
-        border-radius: 16px;
-        margin: 8px 0;
+        background-color: #16161f !important;
+        border-radius: 16px !important;
+        margin: 8px 0 !important;
+        border: 1px solid var(--accent-glow) !important;
     }
+
     .stChatMessage.user {
-        background: linear-gradient(135deg, #2a1f00, #3a2f00) !important;
+        background: var(--chat-user-bg) !important;
     }
+
     .stChatMessage.assistant {
-        background: linear-gradient(135deg, #1a1a2e, #0f0f1e) !important;
+        background: var(--chat-assist-bg) !important;
     }
+
     [data-testid="stChatInput"] {
-        background-color: #111118 !important;
-        border: 2px solid #ffcc3366 !important;
+        background-color: var(--input-bg) !important;
+        border: 2px solid var(--input-border) !important;
         border-radius: 9999px !important;
-        color: #f0f0ff !important;
+        padding: 12px 20px !important;
+        color: var(--text-main) !important;
     }
-    footer {visibility: hidden;}
+
+    [data-testid="stChatInput"] textarea {
+        color: var(--text-main) !important;
+        caret-color: var(--accent) !important;
+    }
+
+    [data-testid="stChatInput"] button {
+        background: var(--accent-glow) !important;
+        color: #0a0a0f !important;
+        border: none !important;
+    }
+
+    footer, [data-testid="stDecoration"] {
+        visibility: hidden !important;
+        height: 0 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ────────────────────────────────────────────────────────────────
-# Session state
-# ────────────────────────────────────────────────────────────────
+# ── Floating bees (optional) ────────────────────────────────────────────────
+if FLOAT_EMOJIS:
+    emoji_float(
+        emojis=["🐝", "🐝", "🍯", "🌼", "💛"],
+        count=10,
+        minSize=24,
+        maxSize=48,
+        duration=18.0,
+        fadeOut=True,
+        opacity=0.6
+    )
 
+# ── Session state ───────────────────────────────────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "vectorstore" not in st.session_state:
@@ -1097,162 +1215,138 @@ if "vectorstore" not in st.session_state:
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = list(GROQ_MODELS.keys())[0]
 
-# ────────────────────────────────────────────────────────────────
-# Sidebar
-# ────────────────────────────────────────────────────────────────
-
+# ── Sidebar (continued) ─────────────────────────────────────────────────────
 with st.sidebar:
-    st.title("Reina 🐝 Controls")
-
-    selected_model_name = st.selectbox(
-        "Model",
+    model_name = st.selectbox(
+        "Brain",
         options=list(GROQ_MODELS.keys()),
         index=list(GROQ_MODELS.keys()).index(st.session_state.selected_model)
     )
-    st.session_state.selected_model = selected_model_name
-    model_id = GROQ_MODELS[selected_model_name]
+    st.session_state.selected_model = model_name
+    model_id = GROQ_MODELS[model_name]
 
     st.divider()
 
-    st.subheader("Upload Documents (RAG)")
+    st.subheader("📄 Feed Reina documents")
     uploaded_files = st.file_uploader(
-        "PDF or TXT files",
-        type=["pdf", "txt"],
-        accept_multiple_files=True
+        "PDF or TXT", type=["pdf", "txt"], accept_multiple_files=True
     )
 
-    if st.button("Clear chat & documents", type="primary"):
+    if st.button("🧹 Reset everything", use_container_width=True):
         st.session_state.messages = []
         st.session_state.vectorstore = None
         st.rerun()
 
-# ────────────────────────────────────────────────────────────────
-# Google Sheet loader
-# ────────────────────────────────────────────────────────────────
-
+# ── Google Sheet loader ─────────────────────────────────────────────────────
 @st.cache_data(ttl=1800)
-def load_google_sheet(_spreadsheet_id, _gid=0):
-    url = f"https://docs.google.com/spreadsheets/d/{_spreadsheet_id}/export?format=csv&gid={_gid}"
+def load_google_sheet_csv(spreadsheet_id, gid=0):
+    url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
     try:
-        response = requests.get(url, timeout=12)
-        response.raise_for_status()
-        return pd.read_csv(io.StringIO(response.text))
-    except Exception:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        return pd.read_csv(io.StringIO(r.text))
+    except:
         return pd.DataFrame()
 
-# ────────────────────────────────────────────────────────────────
-# Process uploaded files
-# ────────────────────────────────────────────────────────────────
+SHEET_ID = "1ATllEOsVzBIHm4egctEVbf7CDzmHtFfyEMmT7U6NNnw"
+GID = 0
 
+# ── Document processing ─────────────────────────────────────────────────────
 if uploaded_files and st.session_state.vectorstore is None:
-    with st.spinner("Processing documents..."):
-        all_docs = []
+    with st.spinner("Digesting documents... 🍯"):
+        docs = []
         for file in uploaded_files:
-            # Save temporarily
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as tmp:
+            fname = file.name.lower()
+            # Better temp file handling
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(fname)[1]) as tmp:
                 tmp.write(file.read())
                 tmp_path = tmp.name
 
             try:
-                if file.name.lower().endswith(".pdf"):
+                if fname.endswith(".pdf"):
                     loader = PyMuPDFLoader(tmp_path)
-                elif file.name.lower().endswith(".txt"):
+                elif fname.endswith(".txt"):
                     loader = TextLoader(tmp_path)
                 else:
-                    st.warning(f"Skipping {file.name} – unsupported format")
                     continue
-
-                all_docs.extend(loader.load())
+                docs.extend(loader.load())
             finally:
                 os.unlink(tmp_path)
 
-        if all_docs:
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200
-            )
-            chunks = text_splitter.split_documents(all_docs)
+        if docs:
+            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            chunks = splitter.split_documents(docs)
+            emb = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            st.session_state.vectorstore = FAISS.from_documents(chunks, emb)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": f"🍯 **Bzzzzt!** I stored **{len(chunks)}** juicy chunks from your files. Ask me anything!"
+            })
 
-            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-            st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
+# ── Main content ────────────────────────────────────────────────────────────
+st.markdown('<h1 class="bee-title">Hello Bees 🐝</h1>', unsafe_allow_html=True)
+st.caption(f"Reina • {st.session_state.selected_model} • Beehive oracle")
 
-            st.success(f"Indexed {len(chunks)} chunks!")
+# Welcome
+if not st.session_state.messages:
+    welcome = """
+🐝 **Bzzzzt!** Welcome to the hive, human!
 
-# ────────────────────────────────────────────────────────────────
-# UI
-# ────────────────────────────────────────────────────────────────
+I'm **Reina** — your slightly sassy beehive oracle.  
+Ask anything, feed me documents, or just vibe with bee puns 🍯
+    """
+    st.session_state.messages.append({"role": "assistant", "content": welcome})
 
-st.title("Hello Bees 🐝")
-st.caption(f"Reina • {st.session_state.selected_model}")
+# Chat history
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-if len(st.session_state.messages) == 0:
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": "Bzzzzt! I'm Reina – your beehive AI helper 🐝\nAsk me anything or upload documents to chat with them!"
-    })
-
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-if prompt := st.chat_input("Bzzz... what's on your mind?"):
+# Input
+if prompt := st.chat_input("Bzzz... whisper your question"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        full_response = ""
-
-        # Prepare context
-        context_parts = []
-
-        # RAG documents
-        if st.session_state.vectorstore:
-            retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
-            relevant_docs = retriever.invoke(prompt)
-            if relevant_docs:
-                context_parts.append(
-                    "Relevant document excerpts:\n" +
-                    "\n\n".join(doc.page_content for doc in relevant_docs)
-                )
-
-        # Google Sheet
-        df = load_google_sheet(SHEET_ID, GID)
-        if not df.empty:
-            context_parts.append(
-                "Current hive data (CSV export):\n" +
-                df.to_markdown(index=False)
-            )
-
-        system_prompt = f"""You are Reina, a friendly and slightly sassy bee-themed AI assistant 🐝.
-You like subtle bee puns and honey references.
-Be helpful, concise, engaging.
-Use the following context when relevant:
-
-{"\n\n".join(context_parts)}
-
-Current user question:"""
+        placeholder = st.empty()
+        full = ""
 
         try:
+            context = ""
+            if st.session_state.vectorstore:
+                retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
+                hits = retriever.invoke(prompt)
+                context += "\n\n".join(d.page_content for d in hits) + "\n\n"
+
+            df = load_google_sheet_csv(SHEET_ID, GID)
+            if not df.empty:
+                context += f"Current hive records:\n{df.to_markdown(index=False)}\n"
+
+            system = f"""You are Reina, sassy bee-themed AI 🐝.
+Sprinkle light bee puns. Warm, helpful, cheeky.
+Use the following context when relevant:
+{context}"""
+
+            messages = [{"role": "system", "content": system}] + [
+                {"role": m["role"], "content": m["content"]} for m in st.session_state.messages
+            ]
+
             stream = client.chat.completions.create(
+                messages=messages,
                 model=model_id,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
-                ],
-                temperature=0.7,
-                max_tokens=1024,
+                temperature=0.75,
+                max_tokens=1200,
                 stream=True
             )
 
             for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    full_response += chunk.choices[0].delta.content
-                    message_placeholder.markdown(full_response + "▌")
+                if chunk.choices[0].delta.content:
+                    full += chunk.choices[0].delta.content
+                    placeholder.markdown(full + "▌")
 
-            message_placeholder.markdown(full_response)
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            placeholder.markdown(full)
+            st.session_state.messages.append({"role": "assistant", "content": full})
 
         except Exception as e:
-            st.error(f"Error: {str(e)}")
+            st.error(f"Hive malfunction: {str(e)}")
