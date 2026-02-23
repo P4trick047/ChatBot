@@ -1081,14 +1081,18 @@ with st.sidebar:
     else:
         st.session_state.theme_override = "dark"
 
-# Final theme class logic
-if st.session_state.theme_override == "auto":
-    # JS already applied class → we just add override if needed
-    pass
-elif st.session_state.theme_override == "light":
-    st.markdown('<script>document.body.classList.remove("dark-theme"); document.body.classList.add("light-theme");</script>', unsafe_allow_html=True)
-else:
-    st.markdown('<script>document.body.classList.remove("light-theme"); document.body.classList.add("dark-theme");</script>', unsafe_allow_html=True)
+# Apply override if user chose manual theme
+if st.session_state.theme_override != "auto":
+    if st.session_state.theme_override == "light":
+        st.markdown(
+            '<script>document.body.classList.remove("dark-theme"); document.body.classList.add("light-theme");</script>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            '<script>document.body.classList.remove("light-theme"); document.body.classList.add("dark-theme");</script>',
+            unsafe_allow_html=True
+        )
 
 # ── Theme-aware CSS with variables ──────────────────────────────────────────
 st.markdown("""
@@ -1104,7 +1108,6 @@ st.markdown("""
         --input-bg: #111118;
         --input-border: #ffcc3366;
     }
-
     body.light-theme {
         --bg-main: #fdfaf0;
         --bg-sidebar: #fff8e1;
@@ -1116,22 +1119,18 @@ st.markdown("""
         --input-bg: #fff8e1;
         --input-border: #f4c43066;
     }
-
     [data-testid="stAppViewContainer"] {
         background-color: var(--bg-main) !important;
         color: var(--text-main) !important;
     }
-
     [data-testid="stSidebar"] {
         background-color: var(--bg-sidebar) !important;
         border-right: 1px solid var(--accent-glow) !important;
     }
-
     h1, h2, h3 {
         color: var(--accent) !important;
         text-shadow: 0 0 10px var(--accent-glow);
     }
-
     .bee-title {
         display: flex;
         align-items: center;
@@ -1149,22 +1148,17 @@ st.markdown("""
         25% { transform: translateX(6px) rotate(15deg); }
         75% { transform: translateX(-6px) rotate(-15deg); }
     }
-
     .stChatMessage {
-        background-color: #16161f !important;
         border-radius: 16px !important;
         margin: 8px 0 !important;
         border: 1px solid var(--accent-glow) !important;
     }
-
     .stChatMessage.user {
         background: var(--chat-user-bg) !important;
     }
-
     .stChatMessage.assistant {
         background: var(--chat-assist-bg) !important;
     }
-
     [data-testid="stChatInput"] {
         background-color: var(--input-bg) !important;
         border: 2px solid var(--input-border) !important;
@@ -1172,18 +1166,15 @@ st.markdown("""
         padding: 12px 20px !important;
         color: var(--text-main) !important;
     }
-
     [data-testid="stChatInput"] textarea {
         color: var(--text-main) !important;
         caret-color: var(--accent) !important;
     }
-
     [data-testid="stChatInput"] button {
         background: var(--accent-glow) !important;
         color: #0a0a0f !important;
         border: none !important;
     }
-
     footer, [data-testid="stDecoration"] {
         visibility: hidden !important;
         height: 0 !important;
@@ -1241,7 +1232,7 @@ def load_google_sheet_csv(spreadsheet_id, gid=0):
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         return pd.read_csv(io.StringIO(r.text))
-    except:
+    except Exception:
         return pd.DataFrame()
 
 SHEET_ID = "1ATllEOsVzBIHm4egctEVbf7CDzmHtFfyEMmT7U6NNnw"
@@ -1253,9 +1244,8 @@ if uploaded_files and st.session_state.vectorstore is None:
         docs = []
         for file in uploaded_files:
             fname = file.name.lower()
-            # Better temp file handling
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(fname)[1]) as tmp:
-                tmp.write(file.read())
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as tmp:
+                tmp.write(file.getvalue())
                 tmp_path = tmp.name
 
             try:
@@ -1264,10 +1254,14 @@ if uploaded_files and st.session_state.vectorstore is None:
                 elif fname.endswith(".txt"):
                     loader = TextLoader(tmp_path)
                 else:
+                    st.warning(f"Skipping unsupported file: {file.name}")
                     continue
                 docs.extend(loader.load())
             finally:
-                os.unlink(tmp_path)
+                try:
+                    os.unlink(tmp_path)
+                except:
+                    pass
 
         if docs:
             splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -1281,18 +1275,11 @@ if uploaded_files and st.session_state.vectorstore is None:
 
 # ── Main content ────────────────────────────────────────────────────────────
 st.markdown('<h1 class="bee-title">Hello Bees 🐝</h1>', unsafe_allow_html=True)
-st.caption(f"Reina • {st.session_state.selected_model} • **Bzzzzt🐝!** Welcome to the hive, human! I'm **Reina** — your slightly sassy beehive oracle.  
-Ask anything, feed me documents, or just vibe with bee puns 🍯")
 
-# # Welcome
-# if not st.session_state.messages:
-#     welcome = """
-# 🐝 **Bzzzzt!** Welcome to the hive, human!
-
-# I'm **Reina** — your slightly sassy beehive oracle.  
-# Ask anything, feed me documents, or just vibe with bee puns 🍯
-#     """
-#     st.session_state.messages.append({"role": "assistant", "content": welcome})
+# Fixed caption - using triple quotes
+st.caption(f"""Reina • {st.session_state.selected_model} • **Bzzzzt🐝!** Welcome to the hive, human! 
+I'm **Reina** — your slightly sassy beehive oracle.  
+Ask anything, feed me documents, or just vibe with bee puns 🍯""")
 
 # Chat history
 for msg in st.session_state.messages:
@@ -1338,7 +1325,7 @@ Use the following context when relevant:
             )
 
             for chunk in stream:
-                if chunk.choices[0].delta.content:
+                if chunk.choices[0].delta.content is not None:
                     full += chunk.choices[0].delta.content
                     placeholder.markdown(full + "▌")
 
